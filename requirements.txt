@@ -1,0 +1,6 @@
+dash==1.19.0
+dash-pivottable==0.0.2
+gunicorn==19.9.0
+PyMySQL==0.9.3
+numpy==1.18.1
+npm==0.1.1
