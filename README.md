@@ -67,7 +67,7 @@ deactivate
 ### Main Page
 
 ![main_top.png](assets/main_top.png)
-![main_middle.png](assets/main_middle.png)
+![main_bottom.png](assets/main_bottom.png)
 
 ### Workouts Page
 
