@@ -1,0 +1,3 @@
+#!/bin/zsh
+python ~/git/peloton-app/index.py
+
