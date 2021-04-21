@@ -72,7 +72,6 @@ deactivate
 ### Workouts Page
 
 ![workouts_top.png](assets/workouts_top.png)
-![workouts_bottom.png](assets/product_bottom.png)
 
 ## Resources
 
