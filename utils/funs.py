@@ -7,7 +7,7 @@ def explode_str(df, col, sep):
     return df.iloc[i].assign(**{col: sep.join(s).split(sep)})
 
 
-def get_data(update_all_data=0):
+def get_data(PATH, update_all_data=0):
     USER = os.environ.get('PELOTON_USER')
     EMAIL = os.environ.get('PELOTON_EMAIL')
     data_file_name = re.sub('[@.]', '_', EMAIL)
@@ -46,7 +46,7 @@ def get_data(update_all_data=0):
 
     workout_ids = list(pd.unique(workouts_df['id']))
     try:
-        existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(data_file_name), sheet_name='workouts')
+        existing_data = pd.read_excel('{}/data/{}_workouts.xlsx'.format(PATH, data_file_name), sheet_name='workouts')
         existing_ids = existing_data['id'].values.tolist()
     except FileNotFoundError:
         existing_data = pd.DataFrame()
