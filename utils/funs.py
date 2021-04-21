@@ -44,23 +44,23 @@ def get_data(update_all_data=0):
     workouts_df['device_time_created_at'] = pd.to_datetime(workouts_df['device_time_created_at'], unit='s')
 
     workout_ids = list(pd.unique(workouts_df['id']))
-    existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(USER), sheet_name='workouts')
-    existing_ids = existing_data['id'].values.tolist()
-    new_cols_added = 0
-    if new_cols_added:
-        new_ids = [wid for wid in workout_ids]
-    else:
-        new_ids = [wid for wid in workout_ids if wid not in existing_ids]
+    try:
+        existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(USER), sheet_name='workouts')
+        existing_ids = existing_data['id'].values.tolist()
+    except FileNotFoundError:
+        update_all_data = 1
 
     WORKOUT_DETAILS_URL = f'{BASE_API_URL}/workout'
     INSTRUCTOR_URL = f'{BASE_API_URL}/instructor'
     METRICS = f'{WORKOUT_DETAILS_URL}/performance_graph'
 
     workout_info = pd.DataFrame()
-    if len(new_ids) > 0 or update_all_data:
+    if len(existing_ids) > 0 or update_all_data:
         if update_all_data:
             new_ids = existing_ids
             print("Updating all data..")
+        else:
+            new_ids = [wid for wid in workout_ids if wid not in existing_ids]
 
         for wid in new_ids:
             workout_url = WORKOUT_DETAILS_URL + '/{}'.format(wid)
