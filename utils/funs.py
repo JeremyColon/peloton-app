@@ -123,7 +123,7 @@ def get_data(PATH, update_all_data=0):
     else:
         all_workout_data = existing_data
 
-    with pd.ExcelWriter('data/{}_workouts.xlsx'.format(data_file_name)) as writer:
+    with pd.ExcelWriter('{}/data/{}_workouts.xlsx'.format(PATH, data_file_name)) as writer:
         all_workout_data.to_excel(writer, sheet_name='workouts', index=False)
 
     return all_workout_data
