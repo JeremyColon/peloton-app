@@ -48,6 +48,7 @@ def get_data(update_all_data=0):
         existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(USER), sheet_name='workouts')
         existing_ids = existing_data['id'].values.tolist()
     except FileNotFoundError:
+        existing_ids = []
         update_all_data = 1
 
     WORKOUT_DETAILS_URL = f'{BASE_API_URL}/workout'
