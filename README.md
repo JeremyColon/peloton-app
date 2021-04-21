@@ -1,8 +1,6 @@
-# Whisps Competitive Brand Assessment
+# Peloton App
 
-This is a demo of how we could utilize Plotly as our tool to deliver dashboards/applications to our customers as well as internally.
-
-This particular example attempts to rebuild the [Whisps Competitive Brand Assessment](https://instore.sisense.wiser.com/app/main#/dashboards/5faf12433d7fab0664fe8103) dashboard from Sisense.
+This app pulls your Peloton data and allows you to filter and visualize it.
 
 (The following instructions apply to MacOSx. I've not been able to test on Windows)
 
