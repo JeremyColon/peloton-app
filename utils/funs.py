@@ -10,6 +10,7 @@ def explode_str(df, col, sep):
 def get_data(update_all_data=0):
     USER = os.environ.get('PELOTON_USER')
     EMAIL = os.environ.get('PELOTON_EMAIL')
+    data_file_name = re.sub('[@.]', '_', EMAIL)
     PWD = os.environ.get('PELOTON_PWD')
     PAYLOAD = {
         'username_or_email': EMAIL,
@@ -45,7 +46,7 @@ def get_data(update_all_data=0):
 
     workout_ids = list(pd.unique(workouts_df['id']))
     try:
-        existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(USER), sheet_name='workouts')
+        existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(data_file_name), sheet_name='workouts')
         existing_ids = existing_data['id'].values.tolist()
     except FileNotFoundError:
         existing_data = pd.DataFrame()
@@ -95,7 +96,6 @@ def get_data(update_all_data=0):
             df = pd.DataFrame(data=d)
             workout_info = pd.concat([workout_info, df], axis=0)
 
-        print(workout_info.head())
         instructor_ids = workout_info['instructor_id'].unique()
         instructors = pd.DataFrame(columns=['instructor_id', 'instructor', 'instructor_spotify_playlist'])
         for ins_id in instructor_ids:
@@ -123,7 +123,7 @@ def get_data(update_all_data=0):
     else:
         all_workout_data = existing_data
 
-    with pd.ExcelWriter('data/{}_workouts.xlsx'.format(USER)) as writer:
+    with pd.ExcelWriter('data/{}_workouts.xlsx'.format(data_file_name)) as writer:
         all_workout_data.to_excel(writer, sheet_name='workouts', index=False)
 
     return all_workout_data
