@@ -58,8 +58,8 @@ def get_data(update_all_data=0):
     workout_info = pd.DataFrame()
     if len(existing_ids) > 0 or update_all_data:
         if update_all_data:
-            new_ids = existing_ids
-            print("Updating all data..")
+            print("Getting all of your data, this may take a few minutes..")
+            new_ids = workout_ids
         else:
             new_ids = [wid for wid in workout_ids if wid not in existing_ids]
 
