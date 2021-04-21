@@ -212,7 +212,7 @@ def parse_date(raw_date):
 
 
 def create_hours_per_month_bar(monthly_hours_df):
-    monthly_hours_df['created_ym'] = monthly_hours_df['created_at'].dt.strftime('%Y-%m')
+    monthly_hours_df.loc[:, 'created_ym'] = monthly_hours_df.loc[:, 'created_at'].dt.strftime('%Y-%m')
     hours_agg = monthly_hours_df.groupby('created_ym').agg({
         'id': 'nunique',
         'length': 'sum'
@@ -456,7 +456,8 @@ def update_widgets(
         if len(disciplines) > 0:
             df_filtered = df_filtered.loc[df_filtered['fitness_discipline'].isin(disciplines), ]
 
-    df_filtered['leaderboard_pct_finish'] = df_filtered['leaderboard_rank']/df_filtered['total_leaderboard_users']
+    df_filtered.loc[:, 'leaderboard_pct_finish'] = df_filtered.loc[:, 'leaderboard_rank'] / df_filtered.loc[:,
+                                                                                            'total_leaderboard_users']
 
     # START INDICATORS
     workouts = len(df_filtered['id'].unique())

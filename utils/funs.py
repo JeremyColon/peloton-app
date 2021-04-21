@@ -48,6 +48,7 @@ def get_data(update_all_data=0):
         existing_data = pd.read_excel('data/{}_workouts.xlsx'.format(USER), sheet_name='workouts')
         existing_ids = existing_data['id'].values.tolist()
     except FileNotFoundError:
+        existing_data = pd.DataFrame()
         existing_ids = []
         update_all_data = 1
 
@@ -56,13 +57,13 @@ def get_data(update_all_data=0):
     METRICS = f'{WORKOUT_DETAILS_URL}/performance_graph'
 
     workout_info = pd.DataFrame()
-    if len(existing_ids) > 0 or update_all_data:
-        if update_all_data:
-            print("Getting all of your data, this may take a few minutes..")
-            new_ids = workout_ids
-        else:
-            new_ids = [wid for wid in workout_ids if wid not in existing_ids]
+    if update_all_data:
+        print("Getting all of your data, this may take a few minutes..")
+        new_ids = workout_ids
+    else:
+        new_ids = [wid for wid in workout_ids if wid not in existing_ids]
 
+    if len(new_ids) > 0:
         for wid in new_ids:
             workout_url = WORKOUT_DETAILS_URL + '/{}'.format(wid)
             metrics_url = workout_url + '/performance_graph'
@@ -94,6 +95,7 @@ def get_data(update_all_data=0):
             df = pd.DataFrame(data=d)
             workout_info = pd.concat([workout_info, df], axis=0)
 
+        print(workout_info.head())
         instructor_ids = workout_info['instructor_id'].unique()
         instructors = pd.DataFrame(columns=['instructor_id', 'instructor', 'instructor_spotify_playlist'])
         for ins_id in instructor_ids:
@@ -110,16 +112,16 @@ def get_data(update_all_data=0):
                                                                                                   on='instructor_id')
         all_workout_data = pd.concat([existing_data, new_workouts], axis=0, sort=False)
 
+        all_workout_data['leaderboard_rank_pct_of_total'] = np.where(
+            pd.isna(all_workout_data['leaderboard_rank']) | pd.isna(all_workout_data['total_leaderboard_users']),
+            0,
+            all_workout_data['leaderboard_rank'] / all_workout_data['total_leaderboard_users']
+        )
+
+        all_workout_data['power_zone'] = all_workout_data['class_title'].str.contains('Power Zone').fillna(0).astype(int)
+
     else:
         all_workout_data = existing_data
-
-    all_workout_data['leaderboard_rank_pct_of_total'] = np.where(
-        pd.isna(all_workout_data['leaderboard_rank']) | pd.isna(all_workout_data['total_leaderboard_users']),
-        0,
-        all_workout_data['leaderboard_rank'] / all_workout_data['total_leaderboard_users']
-    )
-
-    all_workout_data['power_zone'] = all_workout_data['class_title'].str.contains('Power Zone').fillna(0).astype(int)
 
     with pd.ExcelWriter('data/{}_workouts.xlsx'.format(USER)) as writer:
         all_workout_data.to_excel(writer, sheet_name='workouts', index=False)

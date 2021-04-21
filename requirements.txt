@@ -1,3 +1,6 @@
+openpyxl==3.0.7
+requests==2.25.1
+pandas==1.2.4
 dash==1.19.0
 dash-pivottable==0.0.2
 gunicorn==19.9.0
