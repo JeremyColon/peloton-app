@@ -2,8 +2,16 @@ openpyxl==3.0.7
 requests==2.25.1
 pandas==1.2.4
 dash==1.19.0
+dash_html_components==1.1.2
+dash_core_components==1.15.0
 dash-pivottable==0.0.2
+dash_table==4.11.2
 gunicorn==19.9.0
+plotly==4.9.0
 PyMySQL==0.9.3
 numpy==1.18.1
-npm==0.1.1
+Werkzeug==0.15.4
+Flask==1.1.1
+Flask-Compress==1.4.0
+python_dateutil==2.8.1
+html5lib==1.0.1
