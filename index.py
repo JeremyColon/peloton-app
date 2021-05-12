@@ -3,7 +3,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from app import app
-from panels import main, workouts
+from panels import main, workouts, ftp
 
 import os
 
@@ -53,6 +53,10 @@ app.layout = html.Div([
                     html.A(
                         html.Button("Workouts", id="workout-panel"),
                         href="/panels/workouts",
+                    ),
+                    html.A(
+                        html.Button("FTP", id="ftp-panel"),
+                        href="/panels/ftp",
                     )
                 ],
                 className="one-third column",
@@ -78,6 +82,8 @@ def display_page(pathname):
 
     if pathname == "/panels/workouts":
         return workouts.layout
+    elif pathname == '/panels/ftp':
+        return ftp.layout
     else:
         return main.layout
 

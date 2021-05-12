@@ -10,7 +10,7 @@ server = app.server
 PATH = pathlib.Path(__file__).parent
 
 # Load data
-df = funs.get_data(PATH.parent)
+df, heart_rate_zones, ftp, weight = funs.get_data(PATH.parent)
 
 controls_df = df[
     [

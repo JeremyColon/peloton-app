@@ -10,7 +10,7 @@ server = app.server
 PATH = pathlib.Path(__file__).parent
 
 # Load data
-df = funs.get_data(PATH.parent)
+df, heart_rate_zones, ftp, weight = funs.get_data(PATH.parent)
 
 controls_df = df[
     [
@@ -18,6 +18,24 @@ controls_df = df[
         'difficulty', 'calories', 'distance', 'total_work', 'leaderboard_rank_pct_of_total'
     ]
 ]
+
+heart_rate_colors = {
+    'Zone 1': '#51C3AA',
+    'Zone 2': '#B7C85B',
+    'Zone 3': '#F9CB3D',
+    'Zone 4': '#FC800F',
+    'Zone 5': '#FF4658'
+}
+
+power_zones = {
+    'Zone 1': {'color': '#56A5CD', 'min': 0, 'max': ftp*.56},
+    'Zone 2': {'color': '#47C09F', 'min': ftp*.56, 'max': ftp*.75},
+    'Zone 3': {'color': '#ADC44E', 'min': ftp*.75, 'max': ftp*.90},
+    'Zone 4': {'color': '#D6A835', 'min': ftp*.90, 'max': ftp*1.05},
+    'Zone 5': {'color': '#D28F2E', 'min': ftp*1.05, 'max': ftp*1.2},
+    'Zone 6': {'color': '#D56514', 'min': ftp*1.2, 'max': ftp*1.5},
+    'Zone 7': {'color': '#DA374A', 'min': ftp*1.5, 'max': ftp*10},
+}
 
 INSTRUCTORS = funs.get_controls(controls_df, 'instructor')
 CLASS_LENGTH = [el for el in funs.get_controls(controls_df, 'length') if el.get('value') != 0]
@@ -148,7 +166,7 @@ layout = [
                                 id="workouts-difficulty-range",
                                 min=0,
                                 max=10,
-                                step=0.5,
+                                step=None,
                                 value=[0, 10],
                                 marks={i: '{}'.format(i) for i in range(11)},
                                 persistence=True,
@@ -160,7 +178,7 @@ layout = [
                                 id="workouts-leaderboard-range",
                                 min=0,
                                 max=100,
-                                step=1,
+                                step=None,
                                 value=[0, 100],
                                 marks={i*5: '{}'.format(i*5) for i in range(21)},
                                 persistence=True,
@@ -175,8 +193,49 @@ layout = [
                 className="row flex-display"
             ),
             html.Div(
-                id='workouts-table',
+                id='workouts-table-div',
                 className="pretty_container"
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                [html.H6(id="workout-output-text"), html.P("Output")],
+                                id="output",
+                                className="mini_container",
+                            ),
+                            html.Div(
+                                [html.H6(id="workout-distance-text"), html.P("Distance")],
+                                id="distance",
+                                className="mini_container",
+                            ),
+                            html.Div(
+                                [html.H6(id="workout-calories-text"), html.P("Calories")],
+                                id="calories",
+                                className="mini_container",
+                            )
+                        ],
+                        id="workout-info-container",
+                        className="row container-display",
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                id='metrics-line-div-1',
+                                className="pretty_container six columns"
+                            ),
+                            html.Div(
+                                id='metrics-line-div-2',
+                                className="pretty_container six columns",
+                            )
+                        ],
+                        id='workout-charts',
+                        className='row flex-display'
+                    )
+                ],
+                id='workout-stats',
+                className="row flex-display"
             )
         ],
         id="mainContainer",
@@ -197,28 +256,201 @@ def parse_date(raw_date):
 # Helper functions to create figures
 
 
+def create_heart_rate_zone_bar_chart(heart_rate_zones):
+    fig = go.Figure()
+    for z in heart_rate_zones:
+        fig.add_trace(go.Bar(
+            x=[z.get('display_name')],
+            y=[z.get('duration')],
+            name=z.get('display_name'),
+            hovertemplate="<b>%{x}</b><br>"
+                          "Duration (s): %{y}<br>"
+                          "<extra></extra>",
+            marker_color=heart_rate_colors.get(z.get('display_name'))
+        ))
+
+    fig.update_layout(
+        yaxis={
+            'title': 'Duration (s)'
+        },
+        plot_bgcolor='white',
+        showlegend=False,
+        title="Time in Heart Rate Zones"
+    )
+
+    return dcc.Graph(id='hr-zones-bar-chart', figure=fig)
+
+
+def create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_zones):
+    power_zones = {
+        'Zone 1': {'color': '#56A5CD', 'min': 0, 'max': ftp * .56},
+        'Zone 2': {'color': '#47C09F', 'min': ftp * .56, 'max': ftp * .75},
+        'Zone 3': {'color': '#ADC44E', 'min': ftp * .75, 'max': ftp * .90},
+        'Zone 4': {'color': '#D6A835', 'min': ftp * .90, 'max': ftp * 1.05},
+        'Zone 5': {'color': '#D28F2E', 'min': ftp * 1.05, 'max': ftp * 1.2},
+        'Zone 6': {'color': '#D56514', 'min': ftp * 1.2, 'max': ftp * 1.5},
+        'Zone 7': {'color': '#DA374A', 'min': ftp * 1.5, 'max': ftp * 10},
+    }
+    output_fig = go.Figure()
+    output_fig.add_trace(go.Scatter(
+        x=workout_time_series['interval_start'],
+        y=workout_time_series['output'],
+        customdata=workout_time_series[['interval_end', 'cadence', 'resistance', 'speed', 'heart_rate']],
+        name='Output (kJ)',
+        mode='lines+markers',
+        hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata[0]}s<br>"
+                      "<b>Average Output</b>: %{y} kJ<br>"
+                      "<b>Average Cadence</b>: %{customdata[1]} rpm<br>"
+                      "<b>Average Resistance</b>: %{customdata[2]}<br>"
+                      "<b>Average Speed</b>: %{customdata[3]} mph<br>"
+                      "<b>Average Heart Rate</b>: %{customdata[4]} bpm"
+                      "<extra></extra>"
+    ))
+
+    cadence_fig = go.Figure()
+    cadence_fig.add_trace(go.Scatter(
+        x=workout_time_series['interval_start'],
+        y=workout_time_series['cadence'],
+        customdata=workout_time_series[['interval_end', 'output', 'resistance', 'speed', 'heart_rate']],
+        name='Cadence',
+        mode='lines+markers',
+        hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
+                      "<b>Average Cadence</b>: %{y} rpm<br>"
+                      "<b>Average Output</b>: %{customdata[1]} kJ<br>"
+                      "<b>Average Resistance</b>: %{customdata[2]}<br>"
+                      "<b>Average Speed</b>: %{customdata[3]} mph<br>"
+                      "<b>Average Heart Rate</b>: %{customdata[4]} bpm"
+                      "<extra></extra>"
+    ))
+    resistance_fig = go.Figure()
+    resistance_fig.add_trace(go.Scatter(
+        x=workout_time_series['interval_start'],
+        y=workout_time_series['resistance'],
+        customdata=workout_time_series[['interval_end', 'output', 'cadence', 'speed', 'heart_rate']],
+        name='Resistance',
+        mode='lines+markers',
+        hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
+                      "<b>Average Resistance</b>: %{y}<br>"
+                      "<b>Average Output</b>: %{customdata[1]} kJ<br>"
+                      "<b>Average Cadence</b>: %{customdata[2]} rpm<br>"
+                      "<b>Average Speed</b>: %{customdata[3]} mph<br>"
+                      "<b>Average Heart Rate</b>: %{customdata[4]} bpm"
+                      "<extra></extra>"
+    ))
+    speed_fig = go.Figure()
+    speed_fig.add_trace(go.Scatter(
+        x=workout_time_series['interval_start'],
+        y=workout_time_series['speed'],
+        customdata=workout_time_series[['interval_end', 'output', 'cadence', 'resistance', 'heart_rate']],
+        name='Speed',
+        mode='lines+markers',
+        hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
+                      "<b>Average Speed</b>: %{y} mph<br>"
+                      "<b>Average Output</b>: %{customdata[1]} kJ<br>"
+                      "<b>Average Cadence</b>: %{customdata[2]} rpm<br>"
+                      "<b>Average Resistance</b>: %{customdata[3]}<br>"
+                      "<b>Average Heart Rate</b>: %{customdata[4]} bpm"
+                      "<extra></extra>"
+    ))
+
+    output_fig.update_layout(
+        xaxis={
+            'type': 'category',
+            'gridcolor': '#EEEEEE',
+            'gridwidth': 2
+        },
+        yaxis={
+            'range': [workout_time_series['output'].min()/2, workout_time_series['output'].max()*1.2]
+        },
+        title='Output',
+        uniformtext_minsize=8,
+        uniformtext_mode='hide',
+        plot_bgcolor='white'
+    )
+    cadence_fig.layout = output_fig.layout
+    cadence_fig.update_layout(
+        title='Cadence',
+        yaxis={'range': [workout_time_series['cadence'].min()/2, workout_time_series['cadence'].max()*1.2]}
+    )
+    resistance_fig.layout = output_fig.layout
+    resistance_fig.update_layout(
+        title='Resistance',
+        yaxis={'range': [workout_time_series['resistance'].min()/2, workout_time_series['resistance'].max()*1.2]}
+    )
+    speed_fig.layout = output_fig.layout
+    speed_fig.update_layout(
+        title='Speed',
+        yaxis={'range': [workout_time_series['speed'].min()/2, workout_time_series['speed'].max()*1.2]}
+    )
+
+    if workout_time_series['heart_rate'].mean() == 0:
+        heart_rate_fig = None
+    else:
+        heart_rate_fig = go.Figure()
+        heart_rate_fig.add_trace(go.Scatter(
+            x=workout_time_series['interval_start'],
+            y=workout_time_series['heart_rate'],
+            customdata=workout_time_series[['interval_end', 'output', 'cadence', 'resistance', 'speed']],
+            name='Heart Rate',
+            mode='lines+markers',
+            hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
+                          "<b>Average Heart Rate</b>: %{y} bpm<br>"
+                          "<b>Average Output</b>: %{customdata[1]} kJ<br>"
+                          "<b>Average Cadence</b>: %{customdata[2]} rpm<br>"
+                          "<b>Average Resistance</b>: %{customdata[3]}<br>"
+                          "<b>Average Speed</b>: %{customdata[4]} mph"
+                          "<extra></extra>"
+        ))
+
+        heart_rate_fig.layout = output_fig.layout
+        heart_rate_fig.update_layout(
+            title='Heart Rate',
+            yaxis={'range': [workout_time_series['heart_rate'].min()/2, workout_time_series['heart_rate'].max()*1.2]}
+        )
+
+    if is_pz:
+        for key in power_zones.keys():
+            output_fig.add_hrect(
+                y0=power_zones.get(key).get('min'), y1=power_zones.get(key).get('max'),
+                fillcolor=power_zones.get(key).get('color'), opacity=0.65,
+                layer="below", line_width=0,
+            )
+
+    ret = [
+        dcc.Graph(id='output-line-chart', figure=output_fig),
+        dcc.Graph(id='resistance-line-chart', figure=resistance_fig),
+        None if heart_rate_fig is None else dcc.Graph(id='heart-rate-line-chart', figure=heart_rate_fig),
+        dcc.Graph(id='cadence-line-chart', figure=cadence_fig),
+        dcc.Graph(id='speed-line-chart', figure=speed_fig)
+    ]
+
+    return ret
+
+
 def create_workouts_table(table_df):
 
     table_dff = table_df[
         [
-            'created_at', 'name', 'class_title', 'instructor', 'instructor_spotify_playlist', 'power_zone',
-            'total_work', 'is_total_work_personal_record', 'difficulty', 'leaderboard_rank', 'total_leaderboard_users',
-            'leaderboard_pct_finish', 'distance', 'calories', 'max_power', 'avg_power', 'max_cadence', 'avg_cadence',
-            'max_resistance', 'avg_resistance', 'max_speed', 'avg_speed', 'max_heart_rate', 'avg_heart_rate'
+            'peloton_id', 'created_at', 'name', 'class_title', 'instructor', 'instructor_spotify_playlist',
+            'power_zone', 'total_work', 'is_total_work_personal_record', 'difficulty', 'leaderboard_rank',
+            'total_leaderboard_users', 'leaderboard_pct_finish', 'distance', 'calories', 'max_power', 'avg_power',
+            'max_cadence', 'avg_cadence', 'max_resistance', 'avg_resistance', 'max_speed', 'avg_speed',
+            'max_heart_rate', 'avg_heart_rate'
 
         ]
     ]
     table_dff.columns = [
-        'Ride Time', 'Workout Type', 'Title', 'Instructor', "Instructor's Personal Playlist",
+        'id', 'Ride Time', 'Workout Type', 'Title', 'Instructor', "Instructor's Personal Playlist",
         "Is Power Zone", 'Output (kJ)', 'Is PR', 'Difficulty', 'Rank', 'Total Users', 'Leaderboard % Rank',
         'Distance (mi)', 'Calories', 'Max Power', 'Avg Power', 'Max Cadence', 'Avg Cadence', 'Max Resistance',
         'Avg Resistance', 'Max Speed', 'Avg Speed', 'Max Heart Rate', 'Avg Heart Rate'
     ]
 
-    table_dff['Output (kJ)'] = np.round(table_dff['Output (kJ)']/1000, 2)
-    table_dff["Instructor's Personal Playlist"] = "[Link](" + table_dff["Instructor's Personal Playlist"] + ")"
+    table_dff.loc[:, 'Output (kJ)'] = np.round(table_dff.loc[:, 'Output (kJ)']/1000, 2)
+    table_dff.loc[:, "Instructor's Personal Playlist"] = "[Link](" + table_dff.loc[:, "Instructor's Personal Playlist"] + ")"
 
     dt = dash_table.DataTable(
+        id='workouts-table',
         columns=[
             {
                 "name": i,
@@ -226,7 +458,7 @@ def create_workouts_table(table_df):
                 "presentation": "markdown" if i == "Instructor's Personal Playlist" else 'input',
                 "hideable": True
             }
-            for i in table_dff.columns
+            for i in table_dff.columns if i != 'id'
         ],
         data=table_dff.sort_values('Ride Time', ascending=False).to_dict('records'),
         style_data={
@@ -245,9 +477,10 @@ def create_workouts_table(table_df):
             'font-family': 'Arial, Helvetica, sans-serif'
         },
         page_action='native',
-        page_size=50,
+        page_size=10,
         sort_action='native',
-        style_table={'overflowX': 'auto'}
+        style_table={'overflowX': 'auto'},
+        row_selectable='single'
     )
 
     return dt
@@ -317,7 +550,7 @@ def update_filters(reset, main_filters, main_ts):
 
 @app.callback(
     [
-        Output("workouts-table", "children"),
+        Output("workouts-table-div", "children"),
         Output("workouts-session-filters", "data")
     ],
     [
@@ -391,3 +624,80 @@ def update_widgets(
 
     return ret
 
+
+@app.callback(
+    [
+        Output("workout-stats", "style"),
+        Output("workout-output-text", "children"),
+        Output("workout-distance-text", "children"),
+        Output("workout-calories-text", "children"),
+        Output("metrics-line-div-1", "children"),
+        Output("metrics-line-div-2", "children")
+    ],
+    [
+        Input('workouts-table', "selected_row_ids"),
+    ]
+)
+def update_workout_stats(peloton_id):
+
+    if peloton_id is not None:
+        workout_id = df.loc[df['peloton_id'] == peloton_id[0], 'workout_id'].values.tolist()[0]
+
+        div_display = {'display': 'none'} if workout_id is None else {'display': 'inline'}
+
+        workout_metrics, metrics_dict = funs.get_workout_metrics(workout_id)
+
+        workout_time_series = pd.DataFrame(
+            {
+                'interval_start': workout_metrics.get('seconds_since_pedaling_start'),
+                'output': metrics_dict.get('output').get('values'),
+                'cadence': metrics_dict.get('cadence').get('values'),
+                'resistance': metrics_dict.get('resistance').get('values'),
+                'speed': metrics_dict.get('speed').get('values')
+            }
+        )
+
+        hr_zones = None
+
+        if metrics_dict.get('heart_rate') is None:
+            workout_time_series['heart_rate'] = 0
+        else:
+            if 'hr_zones' in metrics_dict['heart_rate'].keys():
+                hr_zones = create_heart_rate_zone_bar_chart(metrics_dict['heart_rate']['hr_zones'])
+
+            workout_time_series['heart_rate'] = metrics_dict.get('heart_rate').get('values')
+
+        workout_time_series['interval_end'] = (workout_time_series['interval_start'].shift(-1) - 1).fillna(
+            workout_time_series['interval_start'].max())
+
+        indicators = [
+            (
+                metrics_dict.get(m).get('display_name'),
+                metrics_dict.get(m).get('max'),
+                metrics_dict.get(m).get('average')
+            ) for m in metrics_dict.keys()
+        ]
+
+        segments = [
+            (
+                seg.get('icon_slug'),
+                seg.get('start_time_offset'),
+                seg.get('length')
+            ) for seg in workout_metrics.get('segment_list')
+        ]
+
+        totals = workout_metrics.get('summaries')
+        is_pz = df.loc[df['peloton_id'] == peloton_id[0], 'power_zone'].values.tolist()[0]
+        time_series = create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_zones)
+
+        indicators = [t.get('value') for t in totals]
+
+        ret = [
+            div_display, indicators[0], indicators[1], indicators[2],
+            [time_series[0], time_series[1], time_series[2]],
+            [time_series[3], time_series[4], hr_zones]
+        ]
+    else:
+        ret = [{'display': 'none'}, None, None, None, None, None]
+
+    return ret

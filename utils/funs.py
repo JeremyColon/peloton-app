@@ -7,8 +7,7 @@ def explode_str(df, col, sep):
     return df.iloc[i].assign(**{col: sep.join(s).split(sep)})
 
 
-def get_data(PATH, update_all_data=0):
-    USER = os.environ.get('PELOTON_USER')
+def api_login(BASE_URL, BASE_API_URL):
     EMAIL = os.environ.get('PELOTON_EMAIL')
     data_file_name = re.sub('[@.]', '_', EMAIL)
     PWD = os.environ.get('PELOTON_PWD')
@@ -16,14 +15,26 @@ def get_data(PATH, update_all_data=0):
         'username_or_email': EMAIL,
         'password': PWD
     }
-    BASE_URL = 'https://api.onepeloton.com'
-    BASE_API_URL = f'{BASE_URL}/api'
     LOGIN_URL = f'{BASE_URL}/auth/login'
     USER_URL = f'{BASE_API_URL}/me'
 
     s = requests.Session()
     s.post(LOGIN_URL, json=PAYLOAD)
     me = s.get(USER_URL)
+
+    return s, me, data_file_name
+
+
+def get_data(PATH, update_all_data=0):
+
+    BASE_URL = 'https://api.onepeloton.com'
+    BASE_API_URL = f'{BASE_URL}/api'
+
+    s, me, data_file_name = api_login(BASE_URL, BASE_API_URL)
+
+    heart_rate_zones = me.json().get('default_heart_rate_zones')
+    ftp = me.json().get('cycling_workout_ftp')
+    weight = me.json().get('weight')
 
     total_workouts = me.json().get('total_workouts')
     pages = math.ceil(total_workouts / 20)
@@ -55,7 +66,6 @@ def get_data(PATH, update_all_data=0):
 
     WORKOUT_DETAILS_URL = f'{BASE_API_URL}/workout'
     INSTRUCTOR_URL = f'{BASE_API_URL}/instructor'
-    METRICS = f'{WORKOUT_DETAILS_URL}/performance_graph'
 
     workout_info = pd.DataFrame()
     if update_all_data:
@@ -67,11 +77,9 @@ def get_data(PATH, update_all_data=0):
     if len(new_ids) > 0:
         for wid in new_ids:
             workout_url = WORKOUT_DETAILS_URL + '/{}'.format(wid)
-            metrics_url = workout_url + '/performance_graph'
             summary_url = workout_url + '/summary'
             workout = s.get(workout_url).json()
             summary = s.get(summary_url).json()
-            #         metrics = s.get(metrics_url).json()
             d = {
                 'workout_id': wid,
                 'instructor_id': workout.get('ride').get('instructor_id'),
@@ -112,11 +120,14 @@ def get_data(PATH, update_all_data=0):
                                                                                                   on='instructor_id')
         all_workout_data = pd.concat([existing_data, new_workouts], axis=0, sort=False)
 
-        all_workout_data['leaderboard_rank_pct_of_total'] = np.where(
-            pd.isna(all_workout_data['leaderboard_rank']) | pd.isna(all_workout_data['total_leaderboard_users']),
-            0,
-            all_workout_data['leaderboard_rank'] / all_workout_data['total_leaderboard_users']
-        )
+        try:
+            all_workout_data['leaderboard_rank_pct_of_total'] = np.where(
+                pd.isna(all_workout_data['leaderboard_rank']) | pd.isna(all_workout_data['total_leaderboard_users']),
+                0,
+                all_workout_data['leaderboard_rank'] / all_workout_data['total_leaderboard_users']
+            )
+        except ZeroDivisionError:
+            all_workout_data['leaderboard_rank_pct_of_total'] = 0
 
         all_workout_data['power_zone'] = all_workout_data['class_title'].str.contains('Power Zone').fillna(0).astype(int)
 
@@ -126,7 +137,7 @@ def get_data(PATH, update_all_data=0):
     with pd.ExcelWriter('{}/data/{}_workouts.xlsx'.format(PATH, data_file_name)) as writer:
         all_workout_data.to_excel(writer, sheet_name='workouts', index=False)
 
-    return all_workout_data
+    return all_workout_data, heart_rate_zones, ftp, weight
 
 
 def get_controls(controls_df, ser_name):
@@ -137,3 +148,34 @@ def get_controls(controls_df, ser_name):
     ret_df = ret_df.loc[~pd.isna(ret_df['label']), ]
 
     return ret_df.sort_values('label').to_dict(orient='records')
+
+
+def get_workout_metrics(workout_id):
+    BASE_URL = 'https://api.onepeloton.com'
+    BASE_API_URL = f'{BASE_URL}/api'
+
+    s, me, data_file_name = api_login(BASE_URL, BASE_API_URL)
+
+    WORKOUT_DETAILS_URL = f'{BASE_API_URL}/workout'
+    workout_url = WORKOUT_DETAILS_URL + '/{}'.format(workout_id)
+    metrics_url = workout_url + '/performance_graph'
+
+    workout = s.get(workout_url).json()
+    workout_metrics = s.get(metrics_url).json()
+
+    workout_segments = workout_metrics.get('segment_list')
+    # [m.get('values') for m in workout_metrics.get('metrics')]
+    metrics_dict = dict()
+    for m in workout_metrics.get('metrics'):
+        metrics_dict[m.get('slug')] = {
+            'display_name': m.get('display_name'),
+            'max': m.get('max_value'),
+            'average': m.get('average_value'),
+            'values': m.get('values')
+        }
+
+        if m.get('slug') == 'heart_rate':
+            metrics_dict[m.get('slug')]['hr_zones'] = m.get('zones')
+
+    return workout_metrics, metrics_dict
+
