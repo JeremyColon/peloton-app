@@ -282,22 +282,14 @@ def create_heart_rate_zone_bar_chart(heart_rate_zones):
 
 
 def create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_zones):
-    power_zones = {
-        'Zone 1': {'color': '#56A5CD', 'min': 0, 'max': ftp * .56},
-        'Zone 2': {'color': '#47C09F', 'min': ftp * .56, 'max': ftp * .75},
-        'Zone 3': {'color': '#ADC44E', 'min': ftp * .75, 'max': ftp * .90},
-        'Zone 4': {'color': '#D6A835', 'min': ftp * .90, 'max': ftp * 1.05},
-        'Zone 5': {'color': '#D28F2E', 'min': ftp * 1.05, 'max': ftp * 1.2},
-        'Zone 6': {'color': '#D56514', 'min': ftp * 1.2, 'max': ftp * 1.5},
-        'Zone 7': {'color': '#DA374A', 'min': ftp * 1.5, 'max': ftp * 10},
-    }
+
     output_fig = go.Figure()
     output_fig.add_trace(go.Scatter(
         x=workout_time_series['interval_start'],
         y=workout_time_series['output'],
         customdata=workout_time_series[['interval_end', 'cadence', 'resistance', 'speed', 'heart_rate']],
         name='Output (kJ)',
-        mode='lines+markers',
+        mode='lines',
         hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata[0]}s<br>"
                       "<b>Average Output</b>: %{y} kJ<br>"
                       "<b>Average Cadence</b>: %{customdata[1]} rpm<br>"
@@ -313,7 +305,7 @@ def create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_
         y=workout_time_series['cadence'],
         customdata=workout_time_series[['interval_end', 'output', 'resistance', 'speed', 'heart_rate']],
         name='Cadence',
-        mode='lines+markers',
+        mode='lines',
         hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
                       "<b>Average Cadence</b>: %{y} rpm<br>"
                       "<b>Average Output</b>: %{customdata[1]} kJ<br>"
@@ -328,7 +320,7 @@ def create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_
         y=workout_time_series['resistance'],
         customdata=workout_time_series[['interval_end', 'output', 'cadence', 'speed', 'heart_rate']],
         name='Resistance',
-        mode='lines+markers',
+        mode='lines',
         hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
                       "<b>Average Resistance</b>: %{y}<br>"
                       "<b>Average Output</b>: %{customdata[1]} kJ<br>"
@@ -343,7 +335,7 @@ def create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_
         y=workout_time_series['speed'],
         customdata=workout_time_series[['interval_end', 'output', 'cadence', 'resistance', 'heart_rate']],
         name='Speed',
-        mode='lines+markers',
+        mode='lines',
         hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
                       "<b>Average Speed</b>: %{y} mph<br>"
                       "<b>Average Output</b>: %{customdata[1]} kJ<br>"
@@ -392,7 +384,7 @@ def create_metrics_line_charts(workout_time_series, segments, ftp, is_pz, power_
             y=workout_time_series['heart_rate'],
             customdata=workout_time_series[['interval_end', 'output', 'cadence', 'resistance', 'speed']],
             name='Heart Rate',
-            mode='lines+markers',
+            mode='lines',
             hovertemplate="<b>Ride Interval</b>: %{x}s - %{customdata}s<br>"
                           "<b>Average Heart Rate</b>: %{y} bpm<br>"
                           "<b>Average Output</b>: %{customdata[1]} kJ<br>"

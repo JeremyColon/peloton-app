@@ -158,7 +158,7 @@ def get_workout_metrics(workout_id):
 
     WORKOUT_DETAILS_URL = f'{BASE_API_URL}/workout'
     workout_url = WORKOUT_DETAILS_URL + '/{}'.format(workout_id)
-    metrics_url = workout_url + '/performance_graph'
+    metrics_url = workout_url + '/performance_graph?every_n=5'
 
     workout = s.get(workout_url).json()
     workout_metrics = s.get(metrics_url).json()
